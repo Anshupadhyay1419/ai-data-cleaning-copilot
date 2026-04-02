@@ -13,7 +13,7 @@
     }
   ],
   "functions": {
-    "api/**/*.py": {
+    "api/*.py": {
       "excludeFiles": "{backend/.venv/**,backend/**/__pycache__/**,backend/**/.pytest_cache/**,backend/**/tests/**}"
     }
   }
