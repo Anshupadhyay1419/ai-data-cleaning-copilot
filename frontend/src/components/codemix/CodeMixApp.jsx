@@ -64,17 +64,17 @@ export default function CodeMixApp() {
       </div>
 
       {apiStatus === 'offline' && (
-        <div className="bg-rose-50 border border-rose-200 p-6 rounded-xl flex items-start shadow-sm">
-          <ServerCrash className="w-8 h-8 text-rose-500 mr-4 flex-shrink-0" />
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start shadow-sm">
+          <ServerCrash className="w-6 h-6 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-lg font-bold text-rose-800 mb-1">NLP Models Not Loaded</h3>
-            <p className="text-rose-600 mb-2 font-medium">The NLP models failed to load. Please ensure paths in <code>models1.py</code> are correct and models are downloaded.</p>
+            <h3 className="text-sm font-bold text-amber-800">Backend health check failed</h3>
+            <p className="text-amber-600 text-sm font-medium">The backend may still be starting up. You can still try using the features below.</p>
           </div>
         </div>
       )}
 
       {/* Main Content Area - Fill height */}
-      <div className={cn("flex-1 min-h-0 transition-opacity duration-300", apiStatus !== 'online' ? 'opacity-50 pointer-events-none' : 'opacity-100')}>
+      <div className="flex-1 min-h-0 transition-opacity duration-300">
         {activeTab === 'single' ? (
           <SingleTextAnalysis apiUrl={NLP_API_URL} />
         ) : (
