@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import sys
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
@@ -20,9 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── App init ──────────────────────────────────────────────────────────────────
-# docs_url/redoc_url set to None so we serve them manually below.
-# This lets us point Swagger UI at a reliable CDN, which fixes the
-# "Failed to load API definition" error on HF Spaces (proxy environment).
 app = FastAPI(
     title="AI Data Cleaning Copilot",
     description="Unified backend for numerical data cleaning and NLP codemix analysis.",
@@ -45,6 +44,19 @@ app.add_middleware(
 app.include_router(numerical_router, prefix="/numerical", tags=["numerical"])
 app.include_router(categorical_router, prefix="/categorical", tags=["categorical"])
 
+# ── Self-ping keep-alive (prevents HF Spaces from sleeping) ──────────────────
+async def keep_alive():
+    """Ping self every 4 minutes to prevent HF Spaces free tier sleep."""
+    await asyncio.sleep(30)  # wait for full startup first
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.get("http://localhost:7860/health")
+                logger.debug("keep_alive ping sent")
+        except Exception:
+            pass  # silently ignore — app may be restarting
+        await asyncio.sleep(240)  # ping every 4 minutes
+
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
@@ -53,11 +65,12 @@ async def startup_event():
         settings.app_env,
         settings.log_level,
     )
+    # Start keep-alive background task
+    asyncio.create_task(keep_alive())
 
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/", tags=["health"])
 async def root():
-    from fastapi.responses import HTMLResponse
     return HTMLResponse(content="""
     <html><body style="font-family:sans-serif;padding:2rem;background:#f9f9f9">
     <h1>🧹 AI Data Cleaning Copilot</h1>
