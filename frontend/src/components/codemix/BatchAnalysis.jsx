@@ -3,7 +3,7 @@ import { Upload, FileText, CheckCircle, Play, Loader2, Download, Table, Code, Ty
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 
-export default function BatchAnalysis({ backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:8000') }) {
+export default function BatchAnalysis({ backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:7860' }) {
   const [file, setFile] = useState(null);
   const [data, setData] = useState(null);
   const [columns, setColumns] = useState([]);
@@ -89,7 +89,7 @@ export default function BatchAnalysis({ backendUrl = import.meta.env.VITE_API_UR
     formData.append("text_column", selectedCol);
 
     try {
-        const response = await fetch(`${backendUrl}/nlp/batch_file`, {
+        const response = await fetch(`${backendUrl}/categorical/process`, {
             method: 'POST',
             body: formData,
         });

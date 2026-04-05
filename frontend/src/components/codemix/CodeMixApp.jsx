@@ -5,8 +5,8 @@ import SingleTextAnalysis from './SingleTextAnalysis';
 import BatchAnalysis from './BatchAnalysis';
 import { cn } from '../../utils';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
-const NLP_API_URL = `${API_BASE_URL}/nlp`; 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:7860';
+const NLP_API_URL = `${API_BASE_URL}/categorical`;
 
 export default function CodeMixApp() {
   const [apiStatus, setApiStatus] = useState('checking'); // checking, online, offline
@@ -18,8 +18,8 @@ export default function CodeMixApp() {
 
   const checkApiStatus = async () => {
     try {
-      const res = await axios.get(`${NLP_API_URL}/health`, { timeout: 3000 });
-      setApiStatus(res.data.status);
+      const res = await axios.get(`${API_BASE_URL}/health`, { timeout: 3000 });
+      setApiStatus(res.data.status === 'ok' ? 'online' : 'offline');
     } catch (err) {
       setApiStatus('offline');
     }

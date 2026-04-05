@@ -9,7 +9,7 @@ import Step4FlashFill from './Step4FlashFill';
 import Step5Anomalies from './Step5Anomalies';
 import Step6Export from './Step6Export';
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:7860';
 
 export default function NormalModeApp() {
   const [datasetInfo, setDatasetInfo] = useState(null);
@@ -32,7 +32,7 @@ export default function NormalModeApp() {
 
   const refreshProfile = async () => {
      try {
-       const res = await axios.get(`${API_URL}/profile`);
+       const res = await axios.get(`${API_URL}/numerical/profile`);
        setProfileData(res.data);
      } catch (err) {
        console.error("Failed to refresh profile");
@@ -47,7 +47,7 @@ export default function NormalModeApp() {
            <h2 className="text-2xl font-bold text-slate-800 mb-2">Upload a Dataset</h2>
            <p className="text-slate-500 mb-8">Begin your data cleaning journey by uploading a CSV file.</p>
            <Step1Upload
-              apiUrl={API_URL}
+              apiUrl={`${API_URL}/numerical`}
               onSuccess={handleUploadSuccess}
               colTypes={colTypes}
               setColTypes={setColTypes}
@@ -142,7 +142,7 @@ export default function NormalModeApp() {
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
            {activeTab === 'insights' && (
              <Step2Profile
-                apiUrl={API_URL}
+                apiUrl={`${API_URL}/numerical`}
                 profileData={profileData}
                 setProfileData={setProfileData}
                 colTypes={colTypes}
@@ -152,7 +152,7 @@ export default function NormalModeApp() {
            )}
            {activeTab === 'missing' && (
              <Step3MissingValues
-                apiUrl={API_URL}
+                apiUrl={`${API_URL}/numerical`}
                 colTypes={colTypes}
                 profileData={profileData}
                 setProfileData={setProfileData}
@@ -161,21 +161,21 @@ export default function NormalModeApp() {
            )}
            {activeTab === 'transformations' && (
              <Step4FlashFill
-                apiUrl={API_URL}
+                apiUrl={`${API_URL}/numerical`}
                 colTypes={colTypes}
                 setColTypes={setColTypes}
               />
            )}
            {activeTab === 'anomalies' && (
              <Step5Anomalies
-                apiUrl={API_URL}
+                apiUrl={`${API_URL}/numerical`}
                 colTypes={colTypes}
                 setDatasetInfo={setDatasetInfo}
               />
            )}
            {activeTab === 'export' && (
              <Step6Export
-                apiUrl={API_URL}
+                apiUrl={`${API_URL}/numerical`}
                 datasetInfo={datasetInfo}
               />
            )}
