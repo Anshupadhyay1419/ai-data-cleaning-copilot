@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ai-data-cleaning-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: HF_CODEMIX_URL
+        sync: false
+      - key: HF_CODEMIX_TOKEN
+        sync: false
+      - key: HF_ENGLISH_URL
+        sync: false
+      - key: HF_ENGLISH_TOKEN
+        sync: false
+      - key: HF_FAKE_NEWS_URL
+        sync: false
+      - key: HF_FAKE_NEWS_TOKEN
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO

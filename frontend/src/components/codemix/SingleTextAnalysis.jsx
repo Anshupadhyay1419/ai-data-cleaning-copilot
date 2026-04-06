@@ -1,120 +1,201 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { Send, Zap, MessageSquareQuote, ShieldAlert, AlertCircle, Smile } from 'lucide-react';
-import { cn } from '../../utils';
+﻿import React, { useState } from "react";
+import axios from "axios";
+import { Send, Loader2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
-export default function SingleTextAnalysis({ apiUrl }) {
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
+const MODELS = [
+  { value: "smart",    label: "Auto-Route (Smart Predict)" },
+  { value: "all",      label: "Run All Models" },
+  { value: "misinfo",  label: "Misinformation Detector" },
+  { value: "fakenews", label: "Fake News Classifier" },
+  { value: "emosen",   label: "Sentiment Analysis" },
+  { value: "text",     label: "Text Analysis Only" },
+];
 
-  const handleAnalyse = async () => {
-    if (text.trim().length < 3) {
-      setError("Please enter at least a few words.");
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setResult(null);
-
-    try {
-      // Create a CSV blob from the text input and send to /categorical/process
-      const csvContent = `text\n"${text.replace(/"/g, '""')}"`;
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const formData = new FormData();
-      formData.append('file', blob, 'input.csv');
-
-      const res = await axios.post(`${apiUrl}/process`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      setResult({
-        model_used: res.data.model_used,
-        result: res.data.result,
-      });
-    } catch (err) {
-      setError(err.response?.data?.detail || "Analysis failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderConfidenceBar = (score, colorClass) => (
-    <div className="w-full bg-slate-100 rounded-full h-2.5 mt-2 overflow-hidden border border-slate-200">
-      <div className={`h-2.5 rounded-full ${colorClass}`} style={{ width: `${score}%` }}></div>
+function ConfBar({ value, color = "#7c3aed" }) {
+  return (
+    <div className="progress-bar" style={{ marginTop: "8px" }}>
+      <div className="progress-fill" style={{ width: `${value}%`, background: color }} />
     </div>
   );
+}
+
+function ResultSection({ title, children }) {
+  return (
+    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", overflow: "hidden" }}>
+      <div style={{ padding: "8px 14px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <p style={{ fontSize: "10px", fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em" }}>{title}</p>
+      </div>
+      <div style={{ padding: "14px" }}>{children}</div>
+    </div>
+  );
+}
+
+function MisinfoResult({ data }) {
+  const isInfo = data.label === "misinfo";
+  return (
+    <ResultSection title="Misinformation">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+        <span style={{ fontWeight: 600, fontSize: "13px", color: isInfo ? "#f87171" : "#34d399" }}>
+          {isInfo ? "⚠️ Misinformation" : "✅ Not Misinformation"}
+        </span>
+        <span style={{ fontSize: "11px", color: "#475569", fontFamily: "JetBrains Mono, monospace" }}>{data.confidence}%</span>
+      </div>
+      <ConfBar value={data.confidence} color={isInfo ? "#ef4444" : "#10b981"} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px" }}>
+        <div className="stat-card" style={{ padding: "10px" }}><span style={{ fontSize: "10px", color: "#475569" }}>Misinfo</span><span style={{ fontSize: "14px", fontWeight: 600, color: "#f87171" }}>{data.prob_misinfo}%</span></div>
+        <div className="stat-card" style={{ padding: "10px" }}><span style={{ fontSize: "10px", color: "#475569" }}>Non-Misinfo</span><span style={{ fontSize: "14px", fontWeight: 600, color: "#34d399" }}>{data.prob_nonmisinfo}%</span></div>
+      </div>
+    </ResultSection>
+  );
+}
+
+function FakeNewsResult({ data }) {
+  const colors = { true:"#34d399", "mostly true":"#6ee7b7", mix:"#fbbf24", misleading:"#f59e0b", "mostly fake":"#f87171", fake:"#ef4444" };
+  return (
+    <ResultSection title="Fake News">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+        <span style={{ fontWeight: 600, fontSize: "13px", textTransform: "capitalize", color: colors[data.label] || "#e2e8f0" }}>{data.emoji} {data.label}</span>
+        <span style={{ fontSize: "11px", color: "#475569", fontFamily: "JetBrains Mono, monospace" }}>{data.confidence}%</span>
+      </div>
+      <ConfBar value={data.confidence} />
+      {data.all_scores && (
+        <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+          {Object.entries(data.all_scores).map(([k, v]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "11px", color: "#475569", width: "90px", textTransform: "capitalize" }}>{k}</span>
+              <div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${v}%`, background: "rgba(124,58,237,0.6)" }} /></div>
+              <span style={{ fontSize: "10px", fontFamily: "JetBrains Mono, monospace", color: "#475569", width: "36px", textAlign: "right" }}>{v}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </ResultSection>
+  );
+}
+
+function SentimentResult({ data }) {
+  const colors = { positive: "#34d399", neutral: "#94a3b8", negative: "#f87171" };
+  return (
+    <ResultSection title="Sentiment">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+        <span style={{ fontWeight: 600, fontSize: "13px", textTransform: "capitalize", color: colors[data.label?.toLowerCase()] || "#e2e8f0" }}>{data.emoji} {data.label}</span>
+        <span style={{ fontSize: "11px", color: "#475569", fontFamily: "JetBrains Mono, monospace" }}>{data.confidence}%</span>
+      </div>
+      <ConfBar value={data.confidence} />
+      {data.all_scores && (
+        <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+          {Object.entries(data.all_scores).map(([k, v]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "11px", color: "#475569", width: "70px", textTransform: "capitalize" }}>{k}</span>
+              <div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${v}%`, background: "rgba(124,58,237,0.6)" }} /></div>
+              <span style={{ fontSize: "10px", fontFamily: "JetBrains Mono, monospace", color: "#475569", width: "36px", textAlign: "right" }}>{v}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </ResultSection>
+  );
+}
+
+function TextAnalysis({ data }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", overflow: "hidden" }}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(255,255,255,0.03)", cursor: "pointer", border: "none" }}>
+        <p style={{ fontSize: "10px", fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em" }}>Text Analysis</p>
+        {open ? <ChevronUp style={{ width: "13px", height: "13px", color: "#475569" }} /> : <ChevronDown style={{ width: "13px", height: "13px", color: "#475569" }} />}
+      </button>
+      {open && (
+        <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <div className="stat-card" style={{ padding: "10px" }}><span style={{ fontSize: "10px", color: "#475569" }}>Words</span><span style={{ fontSize: "18px", fontWeight: 600, color: "#e2e8f0" }}>{data.text_stats?.word_count}</span></div>
+            <div className="stat-card" style={{ padding: "10px" }}><span style={{ fontSize: "10px", color: "#475569" }}>Code-Mix</span><span style={{ fontSize: "18px", fontWeight: 600, color: "#a78bfa" }}>{(data.code_mix_ratio * 100).toFixed(0)}%</span></div>
+          </div>
+          {data.languages_detected?.length > 0 && (
+            <div>
+              <p style={{ fontSize: "10px", color: "#475569", marginBottom: "6px" }}>Languages</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>{data.languages_detected.map(l => <span key={l} className="badge-blue">{l}</span>)}</div>
+            </div>
+          )}
+          {data.slang_analysis?.internet_slang?.length > 0 && (
+            <div>
+              <p style={{ fontSize: "10px", color: "#475569", marginBottom: "6px" }}>Slang</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>{data.slang_analysis.internet_slang.map(s => <span key={s} style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "11px", padding: "2px 8px", borderRadius: "6px", background: "rgba(245,158,11,0.1)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>{s}</span>)}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function SingleTextAnalysis({ apiUrl }) {
+  const [text, setText] = useState("");
+  const [model, setModel] = useState("smart");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const analyse = async () => {
+    if (text.trim().length < 3) { setError("Please enter at least a few words."); return; }
+    setLoading(true); setError(""); setResult(null);
+    try {
+      const res = await axios.post(`${apiUrl}/predict/${model}`, { text });
+      setResult(res.data);
+    } catch (e) { setError(e.response?.data?.detail || e.response?.data?.error || "Analysis failed."); }
+    finally { setLoading(false); }
+  };
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 h-full">
-      {/* Left Pane - Input */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center">
-          <MessageSquareQuote className="w-5 h-5 text-indigo-500 mr-2" />
-          <h2 className="text-xl font-bold text-slate-800">Text Input</h2>
+    <div style={{ display: "flex", gap: "16px", height: "100%" }}>
+      {/* Input */}
+      <div className="card-flat" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <p style={{ fontWeight: 500, color: "#e2e8f0", fontSize: "13px" }}>Text Input</p>
+          <p style={{ fontSize: "11px", color: "#475569", marginTop: "2px" }}>Supports English, Hinglish, and Code-Mix</p>
         </div>
-
-        <div className="p-6 flex-1 flex flex-col gap-6">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Enter text, tweet, or news headline here (supports Hinglish/Code-Mix)..."
-            className="w-full flex-1 bg-white border border-slate-300 rounded-xl p-5 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 resize-none font-medium shadow-inner"
-          />
-
-        <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={handleAnalyse}
-              disabled={loading || !text.trim()}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center"
-            >
-              {loading ? (
-                <><Zap className="w-5 h-5 mr-2 fill-current animate-pulse" /> Analysing...</>
-              ) : (
-                <><Send className="w-5 h-5 mr-2" /> Analyse</>
-              )}
-            </button>
-          </div>
-
-          {error && <div className="text-rose-600 bg-rose-50 border border-rose-200 px-4 py-3 rounded-lg font-bold flex items-center shadow-sm"><AlertCircle className="w-5 h-5 mr-2"/>{error}</div>}
+        <div style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <textarea value={text} onChange={e => setText(e.target.value)}
+            placeholder="Enter text, tweet, or news headline here..."
+            className="input" style={{ flex: 1, resize: "none", minHeight: "140px", fontFamily: "JetBrains Mono, monospace", lineHeight: 1.6 }} />
+          <select value={model} onChange={e => setModel(e.target.value)} className="select">
+            {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+          {error && <p style={{ color: "#f87171", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}><AlertCircle style={{ width: "12px", height: "12px" }} />{error}</p>}
+          <button className="btn-primary" onClick={analyse} disabled={loading || !text.trim()}>
+            {loading ? <Loader2 style={{ width: "14px", height: "14px", animation: "spin 1s linear infinite" }} /> : <Send style={{ width: "14px", height: "14px" }} />}
+            Analyse
+          </button>
         </div>
       </div>
 
-      {/* Right Pane - Results */}
-      <div className="w-full md:w-[450px] lg:w-[500px] flex flex-col bg-slate-50 rounded-xl shadow-inner border border-slate-200 overflow-hidden">
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-           <h2 className="text-lg font-bold text-slate-800">Analysis Results</h2>
-           {result && result.routed_to && (
-             <span className="text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-100">
-               Routed: {result.routed_to}
-             </span>
-           )}
+      {/* Results */}
+      <div className="card-flat" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <p style={{ fontWeight: 500, color: "#e2e8f0", fontSize: "13px" }}>Results</p>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
-           {!result ? (
-             <div className="h-full flex items-center justify-center text-slate-400 font-medium">
-               Run an analysis to see results here.
-             </div>
-           ) : (
-             <div className="animate-in slide-in-from-right-4 fade-in duration-500 space-y-6">
-               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                 <div className="flex items-center justify-between mb-4">
-                   <h4 className="font-bold text-slate-700">Model Used</h4>
-                   <span className="text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full border border-indigo-100">
-                     {result.model_used}
-                   </span>
-                 </div>
-                 <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                   <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-words font-mono">
-                     {JSON.stringify(result.result, null, 2)}
-                   </pre>
-                 </div>
-               </div>
-             </div>
-           )}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+          {!result && !loading && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "8px", color: "#1e293b" }}>
+              <Send style={{ width: "32px", height: "32px" }} />
+              <p style={{ fontSize: "13px" }}>Run an analysis to see results</p>
+            </div>
+          )}
+          {loading && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "8px" }}>
+              <Loader2 style={{ width: "24px", height: "24px", color: "#7c3aed", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: "13px", color: "#475569" }}>Analysing...</p>
+            </div>
+          )}
+          {result && !loading && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {result.misinfo  && <MisinfoResult data={result.misinfo} />}
+              {result.fakenews && <FakeNewsResult data={result.fakenews} />}
+              {result.label !== undefined && result.emoji !== undefined && !result.misinfo && <SentimentResult data={result} />}
+              {result.text_analysis && <TextAnalysis data={result.text_analysis} />}
+              {result.routed_to && <p style={{ fontSize: "11px", color: "#334155", textAlign: "center" }}>Routed to: <span style={{ fontFamily: "JetBrains Mono, monospace", color: "#7c3aed" }}>{result.routed_to}</span></p>}
+            </div>
+          )}
         </div>
       </div>
     </div>

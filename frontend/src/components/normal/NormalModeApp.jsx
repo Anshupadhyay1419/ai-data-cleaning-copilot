@@ -1,187 +1,137 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { UploadCloud, LayoutDashboard, Database, AlertCircle, Sparkles, Download } from 'lucide-react';
-import { cn } from '../../utils';
-import Step1Upload from './Step1Upload';
-import Step2Profile from './Step2Profile';
-import Step3MissingValues from './Step3MissingValues';
-import Step4FlashFill from './Step4FlashFill';
-import Step5Anomalies from './Step5Anomalies';
-import Step6Export from './Step6Export';
+﻿import React, { useState } from "react";
+import { BarChart2, AlertTriangle, Wand2, Activity, Download, Database, RefreshCw } from "lucide-react";
+import { cn } from "../../utils";
+import { API_URL } from "../../config";
+import Step1Upload from "./Step1Upload";
+import Step2Profile from "./Step2Profile";
+import Step3MissingValues from "./Step3MissingValues";
+import Step4FlashFill from "./Step4FlashFill";
+import Step5Anomalies from "./Step5Anomalies";
+import Step6Export from "./Step6Export";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:7860';
+const TABS = [
+  { id: "profile",   label: "Profile",   icon: BarChart2 },
+  { id: "missing",   label: "Missing",   icon: AlertTriangle },
+  { id: "transform", label: "Transform", icon: Wand2 },
+  { id: "anomalies", label: "Anomalies", icon: Activity },
+  { id: "export",    label: "Export",    icon: Download },
+];
+
+const TYPE_COLOR = { numeric:"badge-blue", categorical:"badge-green", text:"badge-slate", datetime:"badge-amber", email:"badge-blue", phone:"badge-green", url:"badge-slate", boolean:"badge-amber", id:"badge-slate" };
 
 export default function NormalModeApp() {
   const [datasetInfo, setDatasetInfo] = useState(null);
   const [colTypes, setColTypes] = useState(null);
   const [previewData, setPreviewData] = useState([]);
   const [profileData, setProfileData] = useState(null);
+  const [activeTab, setActiveTab] = useState("profile");
 
-  const [activeTab, setActiveTab] = useState('insights'); // insights, missing, transformations, anomalies, export
-
-  const handleUploadSuccess = (data) => {
-    setDatasetInfo({
-      filename: data.filename,
-      rows: data.rows,
-      columns: data.columns,
-    });
+  const onUpload = (data) => {
+    setDatasetInfo({ filename: data.filename, rows: data.rows, columns: data.columns });
     setPreviewData(data.preview);
     setColTypes(data.col_types);
-    setActiveTab('insights'); // Switch to insights after successful load
-  };
-
-  const refreshProfile = async () => {
-     try {
-       const res = await axios.get(`${API_URL}/numerical/profile`);
-       setProfileData(res.data);
-     } catch (err) {
-       console.error("Failed to refresh profile");
-     }
+    setProfileData(null);
+    setActiveTab("profile");
   };
 
   if (!datasetInfo) {
     return (
-      <div className="max-w-3xl mx-auto mt-12">
-        <div className="card-panel text-center p-16">
-           <UploadCloud className="w-20 h-20 mx-auto text-indigo-200 mb-6" />
-           <h2 className="text-2xl font-bold text-slate-800 mb-2">Upload a Dataset</h2>
-           <p className="text-slate-500 mb-8">Begin your data cleaning journey by uploading a CSV file.</p>
-           <Step1Upload
-              apiUrl={`${API_URL}/numerical`}
-              onSuccess={handleUploadSuccess}
-              colTypes={colTypes}
-              setColTypes={setColTypes}
-              previewData={previewData}
-           />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "70vh", gap: "2rem" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: "56px", height: "56px", borderRadius: "16px", background: "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(79,70,229,0.2))", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <Database style={{ width: "24px", height: "24px", color: "#a78bfa" }} />
+          </div>
+          <h2 style={{ fontSize: "22px", fontWeight: 600, color: "white", marginBottom: "6px" }}>Upload a dataset</h2>
+          <p style={{ fontSize: "13px", color: "#475569" }}>Start your data cleaning journey with a CSV file</p>
         </div>
+        <Step1Upload apiUrl={API_URL} onSuccess={onUpload} />
       </div>
     );
   }
 
+  const cols = colTypes ? Object.keys(colTypes) : [];
+
   return (
-    <div className="flex flex-col md:flex-row gap-6 h-[calc(100vh-160px)]">
-
-      {/* LEFT PANE - Data Table */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
-
-        {/* Header */}
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-           <div>
-             <h2 className="text-xl font-bold flex items-center text-slate-800">
-               <Database className="w-5 h-5 mr-2 text-indigo-500" />
-               {datasetInfo.filename}
-             </h2>
-             <p className="text-sm text-slate-500 mt-1 font-medium">
-               {datasetInfo.rows.toLocaleString()} rows • {datasetInfo.columns} columns
-             </p>
-           </div>
+    <div style={{ display: "flex", gap: "16px", height: "calc(100vh - 116px)" }}>
+      {/* LEFT — Table */}
+      <div className="card-flat" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+            <Database style={{ width: "14px", height: "14px", color: "#7c3aed", flexShrink: 0 }} />
+            <span style={{ fontWeight: 500, color: "#e2e8f0", fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{datasetInfo.filename}</span>
+            <span style={{ fontSize: "11px", color: "#475569", flexShrink: 0 }}>{datasetInfo.rows.toLocaleString()} rows</span>
+          </div>
+          <button className="btn-ghost" style={{ fontSize: "11px" }} onClick={() => { setDatasetInfo(null); setColTypes(null); setPreviewData([]); setProfileData(null); }}>
+            <RefreshCw style={{ width: "12px", height: "12px" }} />New file
+          </button>
         </div>
-
-        {/* Table Container */}
-        <div className="flex-1 overflow-auto bg-white p-4">
-           {colTypes && previewData && (
-             <table className="w-full text-sm text-left border-collapse min-w-max">
-               <thead className="sticky top-0 bg-slate-50 shadow-sm border-b border-slate-300 z-10">
-                 <tr>
-                   {Object.keys(colTypes).map((col) => (
-                     <th key={col} className="px-4 py-3 font-semibold text-slate-700 bg-slate-50">
-                       <div className="flex flex-col">
-                         <span>{col}</span>
-                         <span className="text-[10px] uppercase text-indigo-600 tracking-wider font-bold mt-1">
-                           {colTypes[col].type}
-                         </span>
-                       </div>
-                     </th>
-                   ))}
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {previewData.map((row, idx) => (
-                   <tr key={idx} className="hover:bg-indigo-50/50 transition-colors">
-                     {Object.keys(colTypes).map(col => (
-                       <td key={col} className="px-4 py-3 text-slate-600 truncate max-w-[200px]">
-                         {row[col] === null || row[col] === "" ? (
-                           <span className="text-rose-400 italic bg-rose-50 px-1 rounded text-xs border border-rose-100">null</span>
-                         ) : (
-                           String(row[col])
-                         )}
-                       </td>
-                     ))}
-                   </tr>
-                 ))}
-               </tbody>
-             </table>
-           )}
-           <p className="text-center text-xs text-slate-400 mt-4 italic pb-4">Showing first 10 rows preview.</p>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {previewData.length > 0 ? (
+            <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
+              <thead style={{ position: "sticky", top: 0, background: "rgba(7,7,15,0.95)", backdropFilter: "blur(8px)" }}>
+                <tr>
+                  {cols.map(c => (
+                    <th key={c} style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, color: "#64748b", borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span className={TYPE_COLOR[colTypes[c]?.type] || "badge-slate"} style={{ fontSize: "9px" }}>{colTypes[c]?.type?.slice(0,3)}</span>
+                        {c}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.map((row, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    {cols.map(c => (
+                      <td key={c} style={{ padding: "8px 16px", fontFamily: "JetBrains Mono, monospace", whiteSpace: "nowrap", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", color: (!row[c] && row[c] !== 0) ? "#334155" : "#94a3b8" }}>
+                        {(!row[c] && row[c] !== 0) ? "null" : String(row[c])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#334155", fontSize: "13px" }}>No preview</div>
+          )}
         </div>
       </div>
 
-      {/* RIGHT PANE - Sidebar Actions */}
-      <div className="w-full md:w-[450px] lg:w-[500px] flex flex-col bg-slate-50 rounded-xl shadow-inner border border-slate-200 overflow-hidden">
-
-        {/* Navigation Tabs */}
-        <div className="flex overflow-x-auto bg-white border-b border-slate-200 p-2 gap-2 hide-scrollbar">
-           <button onClick={() => setActiveTab('insights')} className={cn("px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors", activeTab === 'insights' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}>
-             <LayoutDashboard className="w-4 h-4 inline mr-1.5"/> Insights
-           </button>
-           <button onClick={() => setActiveTab('missing')} className={cn("px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors", activeTab === 'missing' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}>
-             <AlertCircle className="w-4 h-4 inline mr-1.5"/> Missing Values
-           </button>
-           <button onClick={() => setActiveTab('transformations')} className={cn("px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors", activeTab === 'transformations' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}>
-             <Sparkles className="w-4 h-4 inline mr-1.5"/> FlashFill
-           </button>
-           <button onClick={() => setActiveTab('anomalies')} className={cn("px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors", activeTab === 'anomalies' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}>
-             <Database className="w-4 h-4 inline mr-1.5"/> Anomalies
-           </button>
-           <button onClick={() => setActiveTab('export')} className={cn("px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors", activeTab === 'export' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}>
-             <Download className="w-4 h-4 inline mr-1.5"/> Export
-           </button>
+      {/* RIGHT — Tools */}
+      <div className="card-flat" style={{ width: "320px", display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "2px", padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.06)", overflowX: "auto" }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: "5px",
+                padding: "6px 10px", borderRadius: "8px",
+                fontSize: "11px", fontWeight: 500, cursor: "pointer",
+                whiteSpace: "nowrap", transition: "all 0.15s", border: "none",
+                ...(activeTab === t.id ? {
+                  background: "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(79,70,229,0.3))",
+                  color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.25)"
+                } : {
+                  background: "transparent", color: "#475569"
+                })
+              }}
+              onMouseEnter={e => { if (activeTab !== t.id) e.currentTarget.style.color = "#94a3b8"; }}
+              onMouseLeave={e => { if (activeTab !== t.id) e.currentTarget.style.color = "#475569"; }}>
+              <t.icon style={{ width: "11px", height: "11px" }} />
+              {t.label}
+            </button>
+          ))}
         </div>
-
-        {/* Dynamic Sidebar Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
-           {activeTab === 'insights' && (
-             <Step2Profile
-                apiUrl={`${API_URL}/numerical`}
-                profileData={profileData}
-                setProfileData={setProfileData}
-                colTypes={colTypes}
-                datasetInfo={datasetInfo}
-                setDatasetInfo={setDatasetInfo}
-              />
-           )}
-           {activeTab === 'missing' && (
-             <Step3MissingValues
-                apiUrl={`${API_URL}/numerical`}
-                colTypes={colTypes}
-                profileData={profileData}
-                setProfileData={setProfileData}
-                onRefreshPreview={refreshProfile}
-              />
-           )}
-           {activeTab === 'transformations' && (
-             <Step4FlashFill
-                apiUrl={`${API_URL}/numerical`}
-                colTypes={colTypes}
-                setColTypes={setColTypes}
-              />
-           )}
-           {activeTab === 'anomalies' && (
-             <Step5Anomalies
-                apiUrl={`${API_URL}/numerical`}
-                colTypes={colTypes}
-                setDatasetInfo={setDatasetInfo}
-              />
-           )}
-           {activeTab === 'export' && (
-             <Step6Export
-                apiUrl={`${API_URL}/numerical`}
-                datasetInfo={datasetInfo}
-              />
-           )}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+          {activeTab === "profile"   && <Step2Profile apiUrl={API_URL} profileData={profileData} setProfileData={setProfileData} colTypes={colTypes} datasetInfo={datasetInfo} setDatasetInfo={setDatasetInfo} />}
+          {activeTab === "missing"   && <Step3MissingValues apiUrl={API_URL} colTypes={colTypes} profileData={profileData} setProfileData={setProfileData} />}
+          {activeTab === "transform" && <Step4FlashFill apiUrl={API_URL} colTypes={colTypes} setColTypes={setColTypes} />}
+          {activeTab === "anomalies" && <Step5Anomalies apiUrl={API_URL} colTypes={colTypes} setDatasetInfo={setDatasetInfo} />}
+          {activeTab === "export"    && <Step6Export apiUrl={API_URL} datasetInfo={datasetInfo} />}
         </div>
       </div>
-
     </div>
   );
 }
